@@ -22,7 +22,7 @@ public class EmailConfiguration {
         mailSender.setHost("smtp.gmail.com");
         mailSender.setPort(587);
         mailSender.setUsername("accesskeymanager@gmail.com");
-        mailSender.setPassword("dbtqnhazgloatkud");
+        mailSender.setPassword("eeksnidpdgypfqjf");
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");

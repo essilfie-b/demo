@@ -1,11 +1,10 @@
-package com.example.demo.dto;
+package com.example.demo.request;
 
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
-public class VerifyUserDto {
-    private String email;
+public class VerifyUserRequest {
     private String verificationCode;
 }

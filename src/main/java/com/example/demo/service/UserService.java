@@ -1,8 +1,11 @@
 package com.example.demo.service;
 
-import com.example.demo.dto.VerifyUserDto;
+import com.example.demo.request.LoginUserRequest;
+import com.example.demo.request.RegisterUserRequest;
 import com.example.demo.model.User;
 import com.example.demo.repository.UserRepository;
+import com.example.demo.request.ResetPasswordRequest;
+import com.example.demo.request.VerifyUserRequest;
 import com.example.demo.response.LoginResponse;
 import jakarta.mail.MessagingException;
 import org.slf4j.Logger;
@@ -11,13 +14,16 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
-import java.util.List;
 import java.util.Optional;
 import java.util.Random;
+import java.util.UUID;
+
+import static com.example.demo.model.Role.USER;
 
 @Service
 public class UserService {
@@ -39,44 +45,75 @@ public class UserService {
 
     private BCryptPasswordEncoder encoder = new BCryptPasswordEncoder(12);
 
-    public User register(User user){
-        List<User> allUsers = userRepository.findAll();
-
-        User existingUsername = allUsers.stream()
-                        .filter(existingUser -> existingUser.getUsername().equals(user.getUsername()))
-                                .findFirst()
-                .orElse(null);
-        User existingEmail = allUsers.stream()
-                .filter(existingMail -> existingMail.getEmail().equals(user.getEmail()))
-                .findFirst()
-                .orElse(null);
-
-        if (existingUsername == null && existingEmail == null) {
-            user.setPassword(encoder.encode(user.getPassword()));
-            user.setVerificationCode(generateVerificationCode());
-            user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
-            user.setAccountVerified(false);
-            sendVerificationEmail(user);
-            User savedUser = userRepository.save(user);
-            logger.info("Verification email sent to {}", user.getEmail());
-            return savedUser;
-        }
-        else{
-            logger.info("Username or email address already exists");
-            return user;
+    public User register(RegisterUserRequest request) {
+        // Check if username or email already exists
+        if (userRepository.existsByUsername(request.getUsername())) {
+            logger.info("Username already exists: {}", request.getUsername());
+            throw new RuntimeException("Username already exists");
         }
 
+        if (userRepository.existsByEmail(request.getEmail())) {
+            logger.info("Email already exists: {}", request.getEmail());
+            throw new RuntimeException("Email already exists");
+        }
+
+        // Validate password confirmation
+        if (!request.getPassword().equals(request.getConfirmPassword())) {
+            logger.info("Password confirmation does not match for {}", request.getUsername());
+            throw new RuntimeException("Password confirmation does not match");
+        }
+
+        // Create and save the new user
+        User user = new User();
+        user.setUsername(request.getUsername());
+        user.setEmail(request.getEmail());
+        user.setPassword(encoder.encode(request.getPassword())); // Use request password
+        user.setVerificationCode(generateVerificationCode());
+        user.setVerificationCodeExpiration(LocalDateTime.now().plusMinutes(15));
+        user.setAccountVerified(false);
+        user.setRole(USER);
+
+        sendVerificationEmail(user); // Send verification email
+        User savedUser = userRepository.save(user); // Save user to the repository
+        logger.info("Verification email sent to {}", user.getEmail());
+        return savedUser;
     }
 
-    public LoginResponse verify(User user) {
-        Authentication authentication = authManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(),user.getPassword()));
-        if (authentication.isAuthenticated()){
-            String token = jwtService.generateToken(user.getUsername());
-            logger.info(token);
-            return new LoginResponse(true, token, null);
+
+    public LoginResponse login(LoginUserRequest request) {
+        try {
+            // Authenticate the user
+            Authentication authentication = authManager.authenticate(
+                    new UsernamePasswordAuthenticationToken(request.getUsername(), request.getPassword())
+            );
+
+            // Fetch user details from the repository
+            var optionalUser = userRepository.findByUsername(request.getUsername());
+
+            // Check if user exists and account is verified
+            if (optionalUser.isPresent()) {
+                User user = optionalUser.get();
+                if (!user.isAccountVerified()) {
+                    logger.info("User {} attempted to log in but account is not verified.", request.getUsername());
+                    return new LoginResponse(false, null, "Account not verified");
+                }
+
+                // Check if authentication is successful
+                if (authentication.isAuthenticated()) {
+                    String token = jwtService.generateToken(request.getUsername());
+                    logger.info("User {} logged in successfully.", request.getUsername());
+                    return new LoginResponse(true, token, null);
+                }
+            }
+        } catch (AuthenticationException e) {
+            logger.warn("Failed login attempt for username: {}", request.getUsername(), e);
         }
-        return new LoginResponse(false, "Invalid username or password", null);
+
+        logger.info("Invalid login attempt for username: {}", request.getUsername());
+        return new LoginResponse(false, null, "Invalid username or password");
     }
+
+
 
     public void sendVerificationEmail(User user) {
         String subject = "Account Verification";
@@ -122,21 +159,19 @@ public class UserService {
         return String.valueOf(code);
     }
 
-    public void verifyUser(VerifyUserDto request) throws RuntimeException{
-        var optionalUser = userRepository.findByEmail(request.getEmail());
+    public void verifyUser(VerifyUserRequest request) throws RuntimeException{
+        var optionalUser = userRepository.findByVerificationCode(request.getVerificationCode());
 
         if (optionalUser.isPresent()) {
             User user = optionalUser.get();
 
             if (user.getVerificationCodeExpiration().isBefore(LocalDateTime.now()))
                 throw new RuntimeException("Verification code expired");
-            if (user.getVerificationCode().equals(request.getVerificationCode())){
-                user.setAccountVerified(true);
-                user.setVerificationCode(null);
-                user.setVerificationCodeExpiration(null);
-                userRepository.save(user);
-            }else
-                throw new RuntimeException("Invalid verification code");
+
+            user.setAccountVerified(true);
+            user.setVerificationCode(null);
+            user.setVerificationCodeExpiration(null);
+            userRepository.save(user);
 
         }else
             throw new RuntimeException("User not found.");
@@ -159,12 +194,54 @@ public class UserService {
         }
     }
 
-//    public String verify(User user) {
-//        Authentication authentication = authManager.authenticate(new UsernamePasswordAuthenticationToken(user.getUsername(),user.getPassword()));
-//        if (authentication.isAuthenticated())
-//            return jwtService.generateToken(user.getUsername());
-//        return "Failed";
-//    }
-    
-    
+    public void resetPasswordRequest(String email) {
+        var optionalUser = userRepository.findByEmail(email);
+
+        if (optionalUser.isPresent()) {
+            var user = optionalUser.get();
+            String token = generateResetToken();
+            user.setResetToken(token);
+            userRepository.save(user);
+
+            sendResetEmail(user, token);
+        }
+
+    }
+
+    private String generateResetToken() {
+        return UUID.randomUUID().toString();
+    }
+
+    public boolean isTokenValid(String token) {
+        var optionalUser = userRepository.findByResetToken(token);
+        return optionalUser.isPresent();
+    }
+
+    private void sendResetEmail(User user, String token) {
+        String subject = "Password Reset Request";
+        String resetLink = "http://localhost:8080/reset-password?token=" + token;
+        String message = "To reset your password, click on the link below:\n" + resetLink;
+
+        try {
+            emailService.sendSimpleEmail(user.getEmail(), subject, message);
+        } catch (MessagingException e) {
+            e.printStackTrace();
+        }
+    }
+
+    public void resetPassword(String token, ResetPasswordRequest request) {
+        var optionalUser = userRepository.findByResetToken(token);
+
+        if (optionalUser.isPresent()) {
+            var user = optionalUser.get();
+
+            if (request.getPassword().equals(request.getConfirmPassword())) {
+                user.setPassword(encoder.encode(request.getPassword()));
+                user.setResetToken(null);
+                userRepository.save(user);
+            }else
+                throw new RuntimeException("Passwords do not match.");
+        }else
+            throw new RuntimeException("Invalid or expired token");
+    }
 }

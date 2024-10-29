@@ -1,7 +1,9 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
+import lombok.Builder;
 import lombok.Getter;
+import lombok.NoArgsConstructor;
 import lombok.Setter;
 import org.springframework.data.domain.Auditable;
 
@@ -12,12 +14,33 @@ import java.time.LocalDateTime;
 @Table(name = "users")
 @Getter
 @Setter
-public class User {
+public class User{
     @Id
-    @GeneratedValue(strategy = GenerationType.AUTO)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
     private int id;
     private String username;
     private String password;
+    @Enumerated(EnumType.STRING)
+    private Role role;
+    @Column(name = "reset_token", length = 64)
+    private String resetToken;
+    private String email;
+    @Column(name = "account_verified")
+    private boolean accountVerified;
+
+    @Column(name = "verification_code", length = 64)
+    private String verificationCode;
+
+    @Column(name = "verification_code_expiration")
+    private LocalDateTime verificationCodeExpiration;
+
+    public String getResetToken() {
+        return resetToken;
+    }
+
+    public void setResetToken(String resetToken) {
+        this.resetToken = resetToken;
+    }
 
     public String getVerificationCode() {
         return verificationCode;
@@ -35,14 +58,6 @@ public class User {
         this.verificationCodeExpiration = verificationCodeExpiration;
     }
 
-    private String email;
-    private boolean accountVerified;
-
-    @Column(name = "verification_code", length = 64)
-    private String verificationCode;
-
-    @Column(name = "verification_code_expiration")
-    private LocalDateTime verificationCodeExpiration;
 
     public String getEmail() {
         return email;
@@ -82,6 +97,14 @@ public class User {
 
     public void setPassword(String password) {
         this.password = password;
+    }
+
+    public Role getRole() {
+        return role;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
     }
 
     @Override

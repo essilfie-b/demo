@@ -10,14 +10,16 @@ import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.stereotype.Service;
 
 import java.util.List;
+import java.util.Optional;
 
 @Service
-public class AccessKeyService {
+public class UserAccessKeyService {
 
-    private static final Logger logger = LoggerFactory.getLogger(AccessKeyService.class);
+    private static final Logger logger = LoggerFactory.getLogger(UserAccessKeyService.class);
 
     @Autowired
     AccessKeyRepository accessKeyRepository;
@@ -31,7 +33,8 @@ public class AccessKeyService {
         String username = authentication.getName();
 
         logger.info("Fetching access keys for user: {}", username);
-        User user = userRepository.findByUsername(username);
+        Optional<User> optionalUser = userRepository.findByUsername(username);
+        User user = optionalUser.orElseThrow(() -> new UsernameNotFoundException("User not found"));
         if (user == null) {
             logger.warn("No user found for username: {}", username);
             return List.of(); // Return an empty list if no user found
@@ -46,7 +49,10 @@ public class AccessKeyService {
         Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
         String username = authentication.getName();
 
-        User user = userRepository.findByUsername(username);
+        Optional<User> optionalUser = userRepository.findByUsername(username);
+
+        User user = optionalUser.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+
 
         logger.info("Generating access key for user: {}", username);
 
@@ -72,8 +78,5 @@ public class AccessKeyService {
 
     }
 
-    public AccessKey revokeAccessKey(AccessKey targetAccessKey) {
-        targetAccessKey.setStatus(AccessKey.Status.REVOKED);
-        return accessKeyRepository.save(targetAccessKey);
-    }
+
 }
