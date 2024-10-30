@@ -1,5 +1,6 @@
 package com.example.demo.config;
 
+import io.github.cdimascio.dotenv.Dotenv;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
@@ -10,19 +11,17 @@ import java.util.Properties;
 
 @Configuration
 public class EmailConfiguration {
-//    @Value("${spring.mail.username}")
-//    private String emailUsername;
-//
-//    @Value("${spring.mail.password}")
-//    private String password;
+    Dotenv dotenv = Dotenv.load();
+    String password = dotenv.get("APP_PASSWORD");
+    String username = dotenv.get("APP_USERNAME");
 
     @Bean
     public JavaMailSender javaMailSender() {
         JavaMailSenderImpl mailSender = new JavaMailSenderImpl();
         mailSender.setHost("smtp.gmail.com");
         mailSender.setPort(587);
-        mailSender.setUsername("accesskeymanager@gmail.com");
-        mailSender.setPassword("eeksnidpdgypfqjf");
+        mailSender.setUsername(username);
+        mailSender.setPassword(password);
 
         Properties props = mailSender.getJavaMailProperties();
         props.put("mail.transport.protocol", "smtp");
