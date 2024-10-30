@@ -22,14 +22,21 @@ public class UserController {
     UserService service;
 
     @PostMapping("register")
-    public ResponseEntity<?> register(@RequestBody RegisterUserRequest request) {
-        try{
-            return ResponseEntity.status(HttpStatus.CREATED).body(service.register(request));
-        }catch (RuntimeException e){
-            return ResponseEntity.badRequest().body(e.getMessage());
+    public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterUserRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
+            // Assuming service.register(request) returns a success message or object
+            Object result = service.register(request);
+            response.put("success", true);
+            response.put("data", result); // Include any relevant data returned from registration
+            return ResponseEntity.status(HttpStatus.CREATED).body(response);
+        } catch (RuntimeException e) {
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
-
     }
+
 
     @PostMapping("login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginUserRequest request) {
