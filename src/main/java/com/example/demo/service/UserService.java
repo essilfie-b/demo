@@ -1,5 +1,6 @@
 package com.example.demo.service;
 
+import com.example.demo.model.Role;
 import com.example.demo.request.LoginUserRequest;
 import com.example.demo.request.RegisterUserRequest;
 import com.example.demo.model.User;
@@ -95,14 +96,16 @@ public class UserService {
                 User user = optionalUser.get();
                 if (!user.isAccountVerified()) {
                     logger.info("User {} attempted to log in but account is not verified.", request.getUsername());
-                    return new LoginResponse(false, null, "Account not verified");
+                    return new LoginResponse(false, null, "Account not verified", null);
                 }
 
                 // Check if authentication is successful
                 if (authentication.isAuthenticated()) {
                     String token = jwtService.generateToken(request.getUsername());
-                    logger.info("User {} logged in successfully.", request.getUsername());
-                    return new LoginResponse(true, token, null);
+                    Role role = user.getRole(); // Now using Role enum
+
+                    logger.info("User {} logged in successfully with role {}.", request.getUsername(), role.name());
+                    return new LoginResponse(true, token, null, role.name());
                 }
             }
         } catch (AuthenticationException e) {
@@ -110,7 +113,7 @@ public class UserService {
         }
 
         logger.info("Invalid login attempt for username: {}", request.getUsername());
-        return new LoginResponse(false, null, "Invalid username or password");
+        return new LoginResponse(false, null, "Invalid username or password", null);
     }
 
 

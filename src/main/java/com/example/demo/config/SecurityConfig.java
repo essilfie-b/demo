@@ -27,7 +27,6 @@ import java.util.Arrays;
 
 import static com.example.demo.model.Permission.*;
 import static com.example.demo.model.Role.ADMIN;
-import static com.example.demo.model.Role.MANAGER;
 import static org.springframework.http.HttpMethod.*;
 
 @Configuration

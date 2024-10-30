@@ -11,6 +11,9 @@ import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
+import java.util.Map;
+
 @RestController
 @CrossOrigin
 public class UserController {
@@ -34,15 +37,20 @@ public class UserController {
     }
 
     @PostMapping("verify")
-    public ResponseEntity<?> verifyUser(@RequestBody VerifyUserRequest request) {
-        try{
+    public ResponseEntity<Map<String, Object>> verifyUser(@RequestBody VerifyUserRequest request) {
+        Map<String, Object> response = new HashMap<>();
+        try {
             service.verifyUser(request);
-            return ResponseEntity.ok("User verified successfully");
+            response.put("success", true);
+            response.put("message", "User verified successfully");
+            return ResponseEntity.ok(response);
         } catch (RuntimeException e) {
-            return ResponseEntity.badRequest().body(e.getMessage());
+            response.put("success", false);
+            response.put("message", e.getMessage());
+            return ResponseEntity.badRequest().body(response);
         }
-
     }
+
 
     @PostMapping("reset-password-request")
     public ResponseEntity<String> resetPasswordRequest(@RequestParam String email) {
@@ -53,7 +61,7 @@ public class UserController {
     @GetMapping("reset-password")
     public ResponseEntity<String> resetPassword(@RequestParam String token) {
         if (service.isTokenValid(token))
-            return ResponseEntity.ok("Token is valid, please enter your new password.");
+            return ResponseEntity.ok(token);
 
         return ResponseEntity.status(HttpStatus.BAD_REQUEST).body("Invalid or expired token");
     }

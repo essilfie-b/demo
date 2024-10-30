@@ -1,18 +1,17 @@
 package com.example.demo.response;
 
+import lombok.AllArgsConstructor;
 import lombok.Getter;
 import lombok.Setter;
 
 @Getter
 @Setter
+@AllArgsConstructor
 public class LoginResponse {
     private boolean success;
     private String token;
     private String message;
+    private String role;
 
-    public LoginResponse(boolean success, String token, String message) {
-        this.success = success;
-        this.token = token;
-        this.message = message;
-    }
+
 }
