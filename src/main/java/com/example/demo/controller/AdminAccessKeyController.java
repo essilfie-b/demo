@@ -9,7 +9,9 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.*;
 
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
 @RestController
 @RequestMapping("admin")
@@ -35,6 +37,12 @@ public class AdminAccessKeyController {
         }
         else
             return  new ResponseEntity<>(HttpStatus.NOT_FOUND);
+    }
+
+    @GetMapping("get-active-keys")
+    @PreAuthorize("hasAuthority('admin:read')")
+    public ResponseEntity<List<AccessKey>> getUserActiveKeys(@RequestParam String email) {
+        return ResponseEntity.ok(service.getUserActiveKeys(email));
     }
 
 }

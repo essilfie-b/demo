@@ -1,11 +1,8 @@
 package com.example.demo.model;
 
 import jakarta.persistence.*;
-import lombok.Builder;
 import lombok.Getter;
-import lombok.NoArgsConstructor;
 import lombok.Setter;
-import org.springframework.data.domain.Auditable;
 
 import java.time.LocalDateTime;
 
