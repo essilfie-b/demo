@@ -33,8 +33,7 @@ public class UserAccessKeyService {
         String username = authentication.getName();
 
         logger.info("Fetching access keys for user: {}", username);
-        Optional<User> optionalUser = userRepository.findByUsername(username);
-        User user = optionalUser.orElseThrow(() -> new UsernameNotFoundException("User not found"));
+        var user = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));
         if (user == null) {
             logger.warn("No user found for username: {}", username);
             return List.of(); // Return an empty list if no user found
@@ -46,18 +45,13 @@ public class UserAccessKeyService {
     }
 
     public AccessKey generateAccessKey() {
-        Authentication authentication = SecurityContextHolder.getContext().getAuthentication();
-        String username = authentication.getName();
-
-        Optional<User> optionalUser = userRepository.findByUsername(username);
-
-        User user = optionalUser.orElseThrow(() -> new UsernameNotFoundException("User not found"));
-
+        var username = SecurityContextHolder.getContext().getAuthentication().getName();
+        User user = userRepository.findByUsername(username).orElseThrow(() -> new UsernameNotFoundException("User not found"));
 
         logger.info("Generating access key for user: {}", username);
 
-        var activeKeys = getAccessKeys();
-        var existingActiveKey = activeKeys.stream()
+        var accessKeys = getAccessKeys();
+        var existingActiveKey = accessKeys.stream()
                 .filter(key -> key.getStatus() == AccessKey.Status.ACTIVE)
                 .findFirst();
 

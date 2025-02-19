@@ -57,6 +57,13 @@ public class AccessKey {
         accessKeyValue = generateKey();
     }
 
+    @PostLoad
+    protected void checkExpiry() {
+        if (expiryDate.isBefore(LocalDate.now())) {
+            status = Status.EXPIRED;
+        }
+    }
+
     private String generateKey() {
         final String CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
         int length = 32;

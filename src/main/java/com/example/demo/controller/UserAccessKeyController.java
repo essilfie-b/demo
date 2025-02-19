@@ -1,5 +1,6 @@
 package com.example.demo.controller;
 
+import com.example.demo.dto.AccessKeyDTO;
 import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.CrossOrigin;
 import com.example.demo.model.AccessKey;
@@ -14,7 +15,6 @@ import java.util.List;
 @RestController
 @RequestMapping("api")
 @CrossOrigin
-@PreAuthorize("hasAuthority('user:read') or hasAuthority('user:create')")
 public class UserAccessKeyController {
 
     @Autowired
@@ -22,8 +22,11 @@ public class UserAccessKeyController {
 
     @GetMapping("accesskeys")
     @PreAuthorize("hasAuthority('user:read')")
-    public ResponseEntity<List<AccessKey>> getAccessKeys() {
-        var accessKeys = userAccessKeyService.getAccessKeys();
+    public ResponseEntity<List<AccessKeyDTO>> getAccessKeys() {
+        var accessKeys = userAccessKeyService.getAccessKeys()
+                .stream()
+                .map(AccessKeyDTO::new)
+                .toList();
         System.out.println("Access Keys: " + accessKeys);
         return new ResponseEntity<>(accessKeys, HttpStatus.OK);
     }
@@ -34,7 +37,6 @@ public class UserAccessKeyController {
         var accessKey = userAccessKeyService.generateAccessKey();
         System.out.println("Access key: " + accessKey);
         return new ResponseEntity<>(accessKey, HttpStatus.OK);
-
     }
 
     @GetMapping("accesskeys/{accessKeyId}")

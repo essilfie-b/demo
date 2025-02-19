@@ -7,10 +7,7 @@ import lombok.Setter;
 @Getter
 @Setter
 @AllArgsConstructor
-public class LoginResponse {
+public class ErrorResponse {
     private boolean success;
-    private String token;
     private String message;
-    private String role;
-
 }

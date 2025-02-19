@@ -4,7 +4,6 @@ import com.example.demo.filter.JWTFilter;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
-import org.springframework.http.HttpMethod;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
@@ -19,15 +18,10 @@ import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.UsernamePasswordAuthenticationFilter;
 import org.springframework.web.cors.CorsConfiguration;
-import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.cors.CorsConfigurationSource;
-import org.springframework.web.cors.CorsUtils;
+import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 
 import java.util.Arrays;
-
-import static com.example.demo.model.Permission.*;
-import static com.example.demo.model.Role.ADMIN;
-import static org.springframework.http.HttpMethod.*;
 
 @Configuration
 @EnableWebSecurity
@@ -46,13 +40,6 @@ public class SecurityConfig {
                 .csrf(AbstractHttpConfigurer::disable)
                 .authorizeHttpRequests(request -> request
                         .requestMatchers("/register", "/login", "/verify", "resend-code", "reset-password-request", "reset-password").permitAll()
-
-//                        .requestMatchers("auth/admin/**").hasAnyRole(ADMIN.name(), MANAGER.name())
-//                        .requestMatchers(GET, "auth/admin/**").hasAnyAuthority(ADMIN_READ.name(), MANAGER_READ.name())
-//                        .requestMatchers(POST, "auth/admin/**").hasAnyAuthority(ADMIN_CREATE.name(), MANAGER_CREATE.name())
-//                        .requestMatchers(PUT, "auth/admin/**").hasAnyAuthority(ADMIN_UPDATE.name(), MANAGER_UPDATE.name())
-//                        .requestMatchers(DELETE, "auth/admin/**").hasAnyAuthority(ADMIN_DELETE.name(), MANAGER_DELETE.name())
-
                         .anyRequest().authenticated())
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .addFilterBefore(jwtFilter, UsernamePasswordAuthenticationFilter.class)

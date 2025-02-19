@@ -1,5 +1,8 @@
 package com.example.demo.service;
 
+import com.example.demo.exception.AccountNotVerifiedException;
+import com.example.demo.exception.InvalidCredentialsException;
+import com.example.demo.model.AccessKey;
 import com.example.demo.model.Role;
 import com.example.demo.request.LoginUserRequest;
 import com.example.demo.request.RegisterUserRequest;
@@ -16,10 +19,12 @@ import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.UsernamePasswordAuthenticationToken;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.AuthenticationException;
+import org.springframework.security.core.userdetails.UsernameNotFoundException;
 import org.springframework.security.crypto.bcrypt.BCryptPasswordEncoder;
 import org.springframework.stereotype.Service;
 
 import java.time.LocalDateTime;
+import java.util.List;
 import java.util.Optional;
 import java.util.Random;
 import java.util.UUID;
@@ -89,36 +94,32 @@ public class UserService {
             );
 
             // Fetch user details from the repository
-            var optionalUser = userRepository.findByUsername(request.getUsername());
+            var user = userRepository.findByUsername(request.getUsername()).orElseThrow(() -> new UsernameNotFoundException("User not found: " + request.getUsername()));
 
-            // Check if user exists and account is verified
-            if (optionalUser.isPresent()) {
-                User user = optionalUser.get();
-                if (!user.isAccountVerified()) {
-                    logger.info("User {} attempted to log in but account is not verified.", request.getUsername());
-                    return new LoginResponse(false, null, "Account not verified", null);
-                }
-
-                // Check if authentication is successful
-                if (authentication.isAuthenticated()) {
-                    String token = jwtService.generateToken(request.getUsername());
-                    Role role = user.getRole(); // Now using Role enum
-
-                    logger.info("User {} logged in successfully with role {}.", request.getUsername(), role.name());
-                    return new LoginResponse(true, token, null, role.name());
-                }
+            if (!user.isAccountVerified()) {
+                logger.info("User {} attempted to log in but account is not verified.", request.getUsername());
+                throw new AccountNotVerifiedException("Account not verified");
             }
+
+            if (!authentication.isAuthenticated()) {
+                logger.warn("Authentication failed for username: {}", request.getUsername());
+                throw new InvalidCredentialsException("Invalid username or password!");
+            }
+
+            String token = jwtService.generateToken(request.getUsername());
+            var role = user.getRole();
+
+            logger.info("User {} logged in successfully with role {}.", request.getUsername(), role.name());
+            return new LoginResponse(true, token, null, role.name());
+
         } catch (AuthenticationException e) {
-            logger.warn("Failed login attempt for username: {}", request.getUsername(), e);
+            logger.info("Invalid login attempt for username: {}", request.getUsername());
+            throw new InvalidCredentialsException("Invalid username or password!");
         }
 
-        logger.info("Invalid login attempt for username: {}", request.getUsername());
-        return new LoginResponse(false, null, "Invalid username or password", null);
     }
 
-
-
-    public void sendVerificationEmail(User user) {
+    private void sendVerificationEmail(User user) {
         String subject = "Account Verification";
         String verificationCode = user.getVerificationCode();
         String htmlMessage = "<html>"
@@ -180,6 +181,12 @@ public class UserService {
             throw new RuntimeException("User not found.");
 
     }
+
+    public static void main(String[] args) {
+
+    }
+
+
 
     public void resendVerificationCode(String email) throws RuntimeException{
         Optional<User> optionalUser = userRepository.findByEmail(email);
@@ -246,5 +253,9 @@ public class UserService {
                 throw new RuntimeException("Passwords do not match.");
         }else
             throw new RuntimeException("Invalid or expired token");
+    }
+
+    public List<User> getUsers() {
+        return userRepository.findAll();
     }
 }

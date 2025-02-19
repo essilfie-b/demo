@@ -1,5 +1,7 @@
 package com.example.demo.controller;
 
+import com.example.demo.model.AccessKey;
+import com.example.demo.model.User;
 import com.example.demo.request.LoginUserRequest;
 import com.example.demo.request.RegisterUserRequest;
 import com.example.demo.request.ResetPasswordRequest;
@@ -12,6 +14,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 
 @RestController
@@ -20,13 +23,15 @@ public class UserController {
 
     @Autowired
     UserService service;
+    @Autowired
+    private UserService userService;
 
     @PostMapping("register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterUserRequest request) {
         Map<String, Object> response = new HashMap<>();
         try {
             // Assuming service.register(request) returns a success message or object
-            Object result = service.register(request);
+            var result = service.register(request);
             response.put("success", true);
             response.put("data", result); // Include any relevant data returned from registration
             return ResponseEntity.status(HttpStatus.CREATED).body(response);
@@ -37,6 +42,10 @@ public class UserController {
         }
     }
 
+    @GetMapping("all-users")
+    public ResponseEntity<List<User>> getUsers() {
+        return ResponseEntity.ok(service.getUsers());
+    }
 
     @PostMapping("login")
     public ResponseEntity<LoginResponse> login(@RequestBody LoginUserRequest request) {

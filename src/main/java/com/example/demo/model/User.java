@@ -8,7 +8,7 @@ import java.time.LocalDateTime;
 
 
 @Entity
-@Table(name = "users")
+@Table(name = "users", uniqueConstraints = @UniqueConstraint(columnNames = "email"))
 @Getter
 @Setter
 public class User{
@@ -17,11 +17,16 @@ public class User{
     private int id;
     private String username;
     private String password;
+
     @Enumerated(EnumType.STRING)
     private Role role;
+
     @Column(name = "reset_token", length = 64)
     private String resetToken;
+
+    @Column(name = "email", unique = true, nullable = false)
     private String email;
+
     @Column(name = "account_verified")
     private boolean accountVerified;
 
