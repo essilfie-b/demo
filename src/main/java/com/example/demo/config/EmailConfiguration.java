@@ -1,19 +1,21 @@
 package com.example.demo.config;
 
-import io.github.cdimascio.dotenv.Dotenv;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.mail.javamail.JavaMailSender;
 import org.springframework.mail.javamail.JavaMailSenderImpl;
-import org.springframework.beans.factory.annotation.Value;
+
 import java.util.Properties;
 
 
 @Configuration
 public class EmailConfiguration {
-    Dotenv dotenv = Dotenv.load();
-    String password = dotenv.get("APP_PASSWORD");
-    String username = dotenv.get("APP_USERNAME");
+    @Value("${APP_PASSWORD}")
+    private String password;
+
+    @Value("${APP_USERNAME}")
+    private String username;
 
     @Bean
     public JavaMailSender javaMailSender() {
