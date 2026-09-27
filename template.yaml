@@ -1,0 +1,288 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Transform: AWS::Serverless-2016-10-31
+
+Description: Serverless application template for user management system
+
+Globals:
+  Function:
+    Timeout: 30
+    MemorySize: 512
+    Runtime: java11
+    Handler: com.example.demo.handler.LambdaHandler::handleRequest
+
+Parameters:
+  SenderEmailParameter:
+    Type: String
+    Description: Email address to be used as sender for SES
+  VpcId:
+    Type: AWS::EC2::VPC::Id
+    Description: VPC where Lambda functions will be deployed
+  SubnetIds:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Subnets where Lambda functions will be deployed
+  JwtSecret:
+    Type: String
+    Description: Secret key for JWT token generation and validation
+    NoEcho: true
+
+Resources:
+  # DynamoDB Tables
+  UsersTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: Users
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: email
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: EmailIndex
+          KeySchema:
+            - AttributeName: email
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  AccessKeysTable:
+    Type: AWS::DynamoDB::Table
+    Properties:
+      TableName: AccessKeys
+      AttributeDefinitions:
+        - AttributeName: id
+          AttributeType: S
+        - AttributeName: userId
+          AttributeType: S
+      KeySchema:
+        - AttributeName: id
+          KeyType: HASH
+      GlobalSecondaryIndexes:
+        - IndexName: UserIdIndex
+          KeySchema:
+            - AttributeName: userId
+              KeyType: HASH
+          Projection:
+            ProjectionType: ALL
+      BillingMode: PAY_PER_REQUEST
+
+  # Dead Letter Queue
+  EmailFunctionDLQ:
+    Type: AWS::SQS::Queue
+    Properties:
+      QueueName: EmailFunctionDLQ
+      KmsMasterKeyId: !Ref SQSEncryptionKey
+      SqsManagedSseEnabled: false
+
+  # KMS Keys
+  SQSEncryptionKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for SQS queue encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow SQS to use the key
+            Effect: Allow
+            Principal:
+              Service: sqs.amazonaws.com
+            Action:
+              - kms:GenerateDataKey
+              - kms:Decrypt
+            Resource: '*'
+
+  LambdaKMSKey:
+    Type: AWS::KMS::Key
+    Properties:
+      Description: KMS key for Lambda environment variables encryption
+      EnableKeyRotation: true
+      KeyPolicy:
+        Version: '2012-10-17'
+        Statement:
+          - Sid: Enable IAM User Permissions
+            Effect: Allow
+            Principal:
+              AWS: !Sub 'arn:aws:iam::${AWS::AccountId}:root'
+            Action: 'kms:*'
+            Resource: '*'
+          - Sid: Allow Lambda to use the key
+            Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action:
+              - kms:Decrypt
+              - kms:GenerateDataKey
+            Resource: '*'
+
+  # IAM Roles
+  LambdaBasicExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: KMSAccess
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - kms:Decrypt
+                  - kms:GenerateDataKey
+                Resource: 
+                  - !GetAtt LambdaKMSKey.Arn
+                  - !GetAtt SQSEncryptionKey.Arn
+
+  # Lambda Functions
+  UserAuthFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.example.demo.handler.UserAuthHandler::handleRequest
+      Role: !GetAtt LambdaBasicExecutionRole.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          JWT_SECRET: !Ref JwtSecret
+      Events:
+        Login:
+          Type: Api
+          Properties:
+            Path: /auth/login
+            Method: post
+        Register:
+          Type: Api
+          Properties:
+            Path: /auth/register
+            Method: post
+
+  EmailFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.example.demo.handler.EmailHandler::handleRequest
+      Role: !GetAtt LambdaBasicExecutionRole.Arn
+      ReservedConcurrentExecutions: 10
+      VpcConfig:
+        SecurityGroupIds: 
+          - !Ref EmailFunctionSecurityGroup
+        SubnetIds: !Ref SubnetIds
+      DeadLetterQueue:
+        Type: SQS
+        TargetArn: !GetAtt EmailFunctionDLQ.Arn
+      KmsKeyArn: !GetAtt LambdaKMSKey.Arn
+      Policies:
+        - Statement:
+            - Effect: Allow
+              Action:
+                - ses:SendEmail
+                - ses:SendRawEmail
+              Resource: "*"
+        - SQSPollerPolicy:
+            QueueName: !GetAtt EmailFunctionDLQ.QueueName
+      Environment:
+        Variables:
+          SENDER_EMAIL: !Ref SenderEmailParameter
+          SQS_QUEUE_URL: !Ref EmailFunctionDLQ
+      Events:
+        SendEmail:
+          Type: Api
+          Properties:
+            Path: /email
+            Method: post
+
+  EmailFunctionSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Security group for Email Lambda function
+      VpcId: !Ref VpcId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          FromPort: -1
+          ToPort: -1
+          CidrIp: 0.0.0.0/0
+
+  UserManagementFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.example.demo.handler.UserManagementHandler::handleRequest
+      Role: !GetAtt LambdaBasicExecutionRole.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref UsersTable
+      Environment:
+        Variables:
+          USERS_TABLE: !Ref UsersTable
+          JWT_SECRET: !Ref JwtSecret
+      Events:
+        GetUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: get
+        UpdateUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: put
+        DeleteUser:
+          Type: Api
+          Properties:
+            Path: /users/{id}
+            Method: delete
+
+  AccessKeyFunction:
+    Type: AWS::Serverless::Function
+    Properties:
+      CodeUri: .
+      Handler: com.example.demo.handler.AccessKeyHandler::handleRequest
+      Role: !GetAtt LambdaBasicExecutionRole.Arn
+      Policies:
+        - DynamoDBCrudPolicy:
+            TableName: !Ref AccessKeysTable
+      Environment:
+        Variables:
+          ACCESS_KEYS_TABLE: !Ref AccessKeysTable
+          JWT_SECRET: !Ref JwtSecret
+      Events:
+        CreateKey:
+          Type: Api
+          Properties:
+            Path: /access-keys
+            Method: post
+        GetKeys:
+          Type: Api
+          Properties:
+            Path: /access-keys
+            Method: get
+        DeleteKey:
+          Type: Api
+          Properties:
+            Path: /access-keys/{id}
+            Method: delete
+
+Outputs:
+  ApiUrl:
+    Description: URL of the API endpoint
+    Value: !Sub https://${ServerlessRestApi}.execute-api.${AWS::Region}.amazonaws.com/Prod/

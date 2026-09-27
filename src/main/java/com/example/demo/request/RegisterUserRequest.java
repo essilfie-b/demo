@@ -1,18 +1,14 @@
 package com.example.demo.request;
 
+import lombok.AllArgsConstructor;
+import lombok.Data;
+import lombok.NoArgsConstructor;
 
-import com.example.demo.model.Role;
-import lombok.*;
-
-@Getter
-@Setter
 @Data
-@NoArgsConstructor
 @AllArgsConstructor
+@NoArgsConstructor
 public class RegisterUserRequest {
     private String email;
-    private String username;
     private String password;
-    private String confirmPassword;
-
+    private String username;
 }
