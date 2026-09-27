@@ -1,6 +1,5 @@
 package com.example.demo.controller;
 
-import com.example.demo.model.AccessKey;
 import com.example.demo.model.User;
 import com.example.demo.request.LoginUserRequest;
 import com.example.demo.request.RegisterUserRequest;
@@ -23,8 +22,6 @@ public class UserController {
 
     @Autowired
     UserService service;
-    @Autowired
-    private UserService userService;
 
     @PostMapping("register")
     public ResponseEntity<Map<String, Object>> register(@RequestBody RegisterUserRequest request) {

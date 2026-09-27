@@ -85,7 +85,6 @@ public class UserService {
         return savedUser;
     }
 
-
     public LoginResponse login(LoginUserRequest request) {
         try {
             // Authenticate the user
@@ -156,7 +155,6 @@ public class UserService {
         }
     }
 
-
     private String generateVerificationCode() {
         Random random = new Random();
         int code = random.nextInt(900000) + 100000;
@@ -181,12 +179,6 @@ public class UserService {
             throw new RuntimeException("User not found.");
 
     }
-
-    public static void main(String[] args) {
-
-    }
-
-
 
     public void resendVerificationCode(String email) throws RuntimeException{
         Optional<User> optionalUser = userRepository.findByEmail(email);
